@@ -1,0 +1,176 @@
+#!/usr/bin/env Rscript
+# ==========================================
+# Auto Git Push Script for Hybrid_F1_spawns-KateDominque
+# ==========================================
+title: "F1_spawns"
+author: "Kate Gomez-Rangel"
+date: "2025-12-05"
+output: html_document
+---
+2021 Spawns
+
+June Spawns
+
+load June 2021 dataset
+```{r}
+June_2021 <- read_excel("June 2021.xlsx",
+                        sheet = "6.18.21 fertilization revisit")
+View(June_2021)
+```
+
+Clean June crosses
+```{r}
+June_2021 <- read_excel("June 2021.xlsx",
+                       sheet = "6.18.21 fertilization revisit",
+                       skip = 6) %>%
+  janitor::clean_names() %>%
+  tidyr::fill(cross, female, male,
+              female_id, male_id,
+              cross_id, cross_type,
+              .direction = "down") %>%
+  dplyr::mutate(cross_date = "2021-06-18") %>%
+  tidyr::extract(cross, into = "cross",
+                 regex = "Cross (\\d+)")
+
+View(June_2021)
+```
+
+Calculate the average fertilization rates across replicates. Not that there are two measures of fertilization success that use either the presence of cell division alone or include the presence of polar bodies
+```{r}
+june_fert_tbl <- June_2021 %>%
+  group_by(cross_date, cross_type, cross, female_id, male_id) %>%
+  summarize(mean_fert_rate = mean(percent_w_p_bs)) %>%
+  ungroup()
+```
+
+Now we can plot the results
+```{r}
+ggplot(june_fert_tbl, aes(x = cross_type, y = mean_fert_rate)) +
+  geom_point()
+```
+
+July Spawns
+
+Load July datasets
+```{r}
+July_2021 <- read_excel(" July 2021-2.xlsx",
+                        sheet = "7.13.21 (67)",
+                        skip = 1,
+                        col_names = TRUE)%>%
+
+janitor::clean_names() %>%
+  tidyr::fill(cross, female_id, male_id, cross_type,
+              .direction = "down") %>%
+  mutate(cross_date = "2021-07-13") %>%
+  filter(cross_type != "NA") %>%
+  mutate(cross = as.character(cross))
+
+july_fert_tbl <- July_2021 %>%
+  group_by(cross_date, cross, cross_type, female_id, male_id) %>%
+  summarize(mean_fert_rate = mean(fertilization_percent)) %>%
+  ungroup()
+
+ggplot(july_fert_tbl, aes(x = cross_type, y = mean_fert_rate)) +
+  geom_point()
+```
+
+Combine crosses
+```{r}
+hyb_crosses_2021 %>%
+  group_by(cross_type) %>%
+  summarize(fert_rate = mean(mean_fert_rate))
+
+res <- lm(mean_fert_rate ~ cross_type + cross_date + female_id + male_id, data = hyb_crosses_2021)
+
+summary(res)
+```
+
+hybrid box plot
+```{r}
+ggplot(hyb_crosses_2021, aes(x = cross_type, y = mean_fert_rate)) +
+  geom_boxplot(outlier.shape = NA, fill = "lightblue") +
+  geom_jitter(width = 0.15, alpha = 0.6, color = "darkblue") +
+  labs(
+    x = "Cross Type",
+    y = "% Fertilization Rate"
+  ) +
+  theme_minimal()
+```
+
+2024 Spawns
+
+F1 spawn 1
+```{r}
+F1_spawn_1 <- read_excel("F1 spawn 1.xlsx")
+View(F1_spawn_1)
+```
+
+clean data
+```{r}
+F1_spawn_1 <- readxl::read_excel("F1 spawn 1.xlsx") %>%
+  janitor::clean_names() %>%
+  tidyr::fill(cross, cross_type, female_id, male_id,
+              .direction = "down") %>%
+  dplyr::mutate(cross_date = as.Date("2024-04-08"))
+
+view(F1_spawn_1)
+```
+
+plot data
+```{r}
+F1_spawn_1_tbl <- F1_spawn_1 %>%
+  group_by(cross_date, cross_type, cross, female_id, male_id) %>%
+  summarize(mean_fert_rate = mean(total_percent_fertilized, na.rm = TRUE)) %>%
+  ungroup()
+
+ggplot(F1_spawn_1_tbl, aes(x = cross_type, y = mean_fert_rate)) +
+  geom_point()
+```
+
+F1 spawn 2
+
+load dataset
+```{r}
+F1_spawn_2 <- read_excel("F1 spawn 2.xlsx")
+View(F1_spawn_2)
+```
+
+clean dataset
+```{r}
+F1_spawn_2 <- read_excel("F1 spawn 2.xlsx") %>%
+  janitor::clean_names() %>%
+  tidyr::fill(cross_id, cross_type, female_id, male_id,
+              .direction = "down") %>%
+  dplyr::mutate(cross_date = as.Date("2024-04-08"))
+
+view(F1_spawn_2)
+```
+
+plot data
+```{r}
+F1_spawn_2_tbl <- F1_spawn_2 %>%
+  group_by(cross_date, cross_type, cross_id, female_id, male_id) %>%
+  summarize(mean_fert_rate = mean(total_percent_fertilized, na.rm = TRUE)) %>%
+  ungroup()
+
+ggplot(F1_spawn_2_tbl, aes(x = cross_type, y = mean_fert_rate)) +
+  geom_point()
+```
+
+combine and boxplot all 2024 hybrid data
+```{r}
+Hyb_crosses_2024 <- bind_rows(F1_spawn_1_tbl, F1_spawn_2_tbl)
+ggplot(Hyb_crosses_2024, aes(x = cross_type, y = mean_fert_rate)) +
+  geom_point()
+
+ggplot(Hyb_crosses_2024, aes(x = cross_type, y = mean_fert_rate)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.7) +
+  theme_bw() +
+  labs(
+    x = "Cross Type",
+    y = "% Fertilization Rate",
+    title = "F1 Hybrid Crosses - 2024"
+  )
+```
+
